@@ -18,6 +18,47 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', () => {
+
+        const fileInput = document.getElementById('eepromFileSelector');
+        const mileageDisplay = document.getElementById('mileageDisplay');
+
+        fileInput.addEventListener('change', (event) => {
+          const file = event.target.files[0];
+
+          if(!file)
+            return;
+
+          if(!file.name.toLowerCase().endsWith('.bin')) {
+            M.toast({
+              html: 'Please select a .bin file.',
+              classes: 'red darken-1'
+            });
+
+            fileInput.value = '';
+            return;
+          }
+
+          const reader = new FileReader();
+
+          reader.onload = function(e) {
+            const buffer = e.target.result;
+            const dataView = new DataView(buffer);
+
+            const mileageOffset = 16;
+
+            const mileage = dataView.getInt32(mileageOffset, true)/10;
+            const rawBytes = Array.from({ length: 4 }, (_, i) => dataView.getUint8(mileageOffset + i));
+
+            console.log("Raw Bytes:", rawBytes.map(b => b.toString(16).padStart(2, '0')).join(' '));
+            console.log(mileage);
+            mileageDisplay.textContent = mileage + ' kms';
+
+          };
+
+          reader.readAsArrayBuffer(file);
+
+        });
+
       });
     </script>
 
@@ -35,6 +76,7 @@
     <div class="container">
       <div class="section">
 
+        <!-- File Selector -->
         <div class="row">
           <div class="col s12">
 
@@ -42,14 +84,24 @@
               <div class="file-field input-field">
                 <div class="btn">
                   <span>Select EEPROM Dump</span>
-                  <input type="file">
+                  <input type="file" accept=".bin" id="eepromFileSelector">
                 </div>
                 <div class="file-path-wrapper">
-                  <input class="file-path validate" type="text">
+                  <input class="file-path validate" type="text" placeholder="Select your EEPROM binary dump (2 KB size)">
                 </div>
               </div>
             </form>
 
+          </div>
+        </div>
+
+        <!-- Display of values -->
+        <div class="row">
+          <div class="col s6 right-align">
+            Mileage
+          </div>
+          <div class="col s6" id="mileageDisplay">
+            -
           </div>
         </div>
 

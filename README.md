@@ -6,6 +6,6 @@ Use at your own risk.
 ## How to use
 The tool itself runs completely client-side in a browser. No compilation, no nothing. Just download or clone the repository and open the index.html in a browser.
 
-If you do not wish to download anything, simply open this link: [https://sebauer.github.io/duc24c16eeprom/]
+It's also hosted on GitHub pages, if you do not wish to download anything: https://sebauer.github.io/duc24c16eeprom/
 
 It expects a 2048 byte EEPROM dump (.bin) read from the 24C16 EEPROM chip of the Magneti Marelli (and maybe other) Ducati dashboards. A CH341a EEPROM programmer with an SOIC8 clip on works fine to read the EEPROM.

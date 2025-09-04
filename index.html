@@ -19,13 +19,25 @@
     <script>
       document.addEventListener('DOMContentLoaded', () => {
 
+        function readKeyCode(dataView, offset) {
+          const keyCodeInHex = [];
+
+          for (let i = 0; i < 10; i++) {
+              const currentByte = dataView.getUint8(offset + i);
+              const hexString = currentByte.toString(16).padStart(2, '0').toUpperCase();
+              keyCodeInHex.push(hexString);
+            }
+
+            return keyCodeInHex.join(' ');
+        }
+
         const fileInput = document.getElementById('eepromFileSelector');
         const mileageDisplay = document.getElementById('mileageDisplay');
         const checksumDisplay = document.getElementById('checksumDisplay');
         const immoBypass1Display = document.getElementById('immoBypass1Display');
         const immoBypass2Display = document.getElementById('immoBypass2Display');
-        const key1Display = document.getElementById('key1Display');
-        const key2Display = document.getElementById('key2Display');
+        const keyCode1Display = document.getElementById('keyCode1Display');
+        const keyCode2Display = document.getElementById('keyCode2Display');
 
         fileInput.addEventListener('change', (event) => {
           const file = event.target.files[0];
@@ -51,10 +63,14 @@
 
             const mileageOffset = 0x10;
             const mileageChecksumOffset = 0x19;
+
             const immoBypassOffset1 = 0x100;
             const immoBypassOffset2 = 0x110;
+
             const keyCode1Offset = 0x120;
             const keyCode2Offset = 0x130;
+            const keyCode1 = readKeyCode(dataView, keyCode1Offset);
+            const keyCode2 = readKeyCode(dataView, keyCode2Offset);
 
             const mileage = dataView.getInt32(mileageOffset, true)/10;
             const mileageChecksum = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
@@ -69,15 +85,14 @@
               + dataView.getUint8(immoBypassOffset2+2) + ' '
               + dataView.getUint8(immoBypassOffset2+3) + ' '
               + dataView.getUint8(immoBypassOffset2+4);
-            const key1 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
-            const key2 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
-
-
 
             mileageDisplay.textContent = mileage + ' kms';
             checksumDisplay.textContent = mileageChecksum;
             immoBypass1Display.textContent = immoBypass1;
             immoBypass2Display.textContent = immoBypass2;
+
+            keyCode1Display.innerText = keyCode1;
+            keyCode2Display.innerText = keyCode2;
 
           };
 
@@ -178,7 +193,7 @@
             <div class="col s6 right-align">
               Key Code 1
             </div>
-            <div class="col s6" id="key1Display">
+            <div class="col s6" id="keyCode1Display">
               -
             </div>
           </div>
@@ -186,7 +201,7 @@
             <div class="col s6 right-align">
               Key Code 2
             </div>
-            <div class="col s6" id="key2Display">
+            <div class="col s6" id="keyCode2Display">
               -
             </div>
           </div>

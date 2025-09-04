@@ -1,0 +1,1 @@
+# duc24c16eeprom

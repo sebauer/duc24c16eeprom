@@ -22,6 +22,10 @@
         const fileInput = document.getElementById('eepromFileSelector');
         const mileageDisplay = document.getElementById('mileageDisplay');
         const checksumDisplay = document.getElementById('checksumDisplay');
+        const immoBypass1Display = document.getElementById('immoBypass1Display');
+        const immoBypass2Display = document.getElementById('immoBypass2Display');
+        const key1Display = document.getElementById('key1Display');
+        const key2Display = document.getElementById('key2Display');
 
         fileInput.addEventListener('change', (event) => {
           const file = event.target.files[0];
@@ -47,12 +51,29 @@
 
             const mileageOffset = 16;
             const mileageChecksumOffset = 25;
+            const immoBypassOffset1 = 256;
+            const immoBypassOffset2 = 272;
 
             const mileage = dataView.getInt32(mileageOffset, true)/10;
             const mileageChecksum = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
 
+            const immoBypass1 = dataView.getUint8(immoBypassOffset1) + ' '
+              + dataView.getUint8(immoBypassOffset1+1) + ' '
+              + dataView.getUint8(immoBypassOffset1+2) + ' '
+              + dataView.getUint8(immoBypassOffset1+3) + ' '
+              + dataView.getUint8(immoBypassOffset1+4);
+            const immoBypass2 = dataView.getUint8(immoBypassOffset2) + ' '
+              + dataView.getUint8(immoBypassOffset2+1) + ' '
+              + dataView.getUint8(immoBypassOffset2+2) + ' '
+              + dataView.getUint8(immoBypassOffset2+3) + ' '
+              + dataView.getUint8(immoBypassOffset2+4);
+            const key1 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+            const key2 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+
             mileageDisplay.textContent = mileage + ' kms';
             checksumDisplay.textContent = mileageChecksum;
+            immoBypass1Display.textContent = immoBypass1;
+            immoBypass2Display.textContent = immoBypass2;
 
           };
 
@@ -96,24 +117,71 @@
           </div>
         </div>
 
-        <!-- Display of values -->
-        <div class="row">
-          <div class="col s6 right-align">
-            Mileage
+        <!-- Display of mileage values -->
+        <div class="container">
+          <div class="row">
+            <div class="col s12 center-align">
+              <h5>Mileage</h5>
+            </div>
           </div>
-          <div class="col s6" id="mileageDisplay">
-            -
+          <div class="row">
+            <div class="col s6 right-align">
+              Mileage
+            </div>
+            <div class="col s6" id="mileageDisplay">
+              -
+            </div>
           </div>
-        </div>
-        <div class="row">
-          <div class="col s6 right-align">
-            Mileage Checksum
-          </div>
-          <div class="col s6" id="checksumDisplay">
-            -
+          <div class="row">
+            <div class="col s6 right-align">
+              Mileage Checksum
+            </div>
+            <div class="col s6" id="checksumDisplay">
+              -
+            </div>
           </div>
         </div>
 
+        <!-- Display of immobilizer related values -->
+        <div class="container">
+          <div class="row">
+            <div class="col s12 center-align">
+            <h5>Immobilizer</h5>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s6 right-align">
+              Immo Bypass Code 1
+            </div>
+            <div class="col s6" id="immoBypass1Display">
+              -
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s6 right-align">
+              Immo Bypass Code 2
+            </div>
+            <div class="col s6" id="immoBypass2Display">
+              -
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s6 right-align">
+              Key Code 1
+            </div>
+            <div class="col s6" id="key1Display">
+              -
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s6 right-align">
+              Key Code 2
+            </div>
+            <div class="col s6" id="key2Display">
+              -
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

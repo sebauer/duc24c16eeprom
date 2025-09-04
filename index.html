@@ -44,13 +44,14 @@
         const keyCode1Display = document.getElementById('keyCode1Display');
         const keyCode2Display = document.getElementById('keyCode2Display');
         const downloadButton = document.getElementById('downloadButton');
+        const startDownloadButton = document.getElementById('startDownloadButton');
         const checksumMismatchIcon = document.getElementById('checksumMismatchIcon');
 
         let checksumByte1;
         let checksumByte2;
 
-        var elems = document.querySelectorAll('.tooltipped');
-        var instances = M.Tooltip.init(elems);
+        let tooltips = M.Tooltip.init(document.querySelectorAll('.tooltipped'));
+        let modals = M.Modal.init(document.querySelectorAll('.modal'));
 
         function integerToBytes(integerValue) {
           const buffer = new ArrayBuffer(4);
@@ -261,7 +262,7 @@
           downloadButton.classList.remove('disabled');
         });
 
-        downloadButton.addEventListener('click', (event) => {
+        startDownloadButton.addEventListener('click', (event) => {
           createModifiedDump(mileageInput.value);
         });
       });
@@ -397,7 +398,17 @@
           </div>
           <div class="row">
             <div class="col s12 center-align">
-              <a class="waves-effect waves-light btn red darken-4 disabled" id="downloadButton"><i class="material-icons left">save</i>Save modified File</a>
+              <a class="waves-effect waves-light btn red darken-4 disabled modal-trigger" href="#downloadModal" id="downloadButton"><i class="material-icons left">save</i>Save modified File</a>
+              <div id="downloadModal" class="modal">
+                <div class="modal-content">
+                  <h4>Important Notice</h4>
+                  <p>Messing with the odometer can get you into legal hot water, depending on where you live. On top of that, the checksums might be off and the dump could be totally borked. If you decide to flash this thing, that’s on you – use at your own risk.</p>
+                </div>
+                <div class="modal-footer">
+                  <a href="#!" class="modal-close waves-effect waves-green btn-flat grey lighten-2">Disagree</a>
+                  <a href="#!" class="modal-close waves-effect waves-green btn-flat amber darken-2 white-text" id="startDownloadButton">I understand the risks, continue</a>
+                </div>
+              </div>
             </div>
           </div>
         </div>

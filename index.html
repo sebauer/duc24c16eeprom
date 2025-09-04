@@ -31,6 +31,25 @@
             return keyCodeInHex.join(' ');
         }
 
+        function readImmoCode(dataView, offset) {
+          const immoBypass = dataView.getUint8(offset) + ' '
+              + dataView.getUint8(offset+1) + ' '
+              + dataView.getUint8(offset+2) + ' '
+              + dataView.getUint8(offset+3) + ' '
+              + dataView.getUint8(offset+4);
+          return immoBypass;
+        }
+
+        function readOdometer(dataView) {
+          const mileageOffset = 0x10;
+          return dataView.getInt32(mileageOffset, true)/10;
+        }
+
+        function readOdometerChecksum(dataView) {
+          const mileageChecksumOffset = 0x19;
+          return dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+        }
+
         const fileInput = document.getElementById('eepromFileSelector');
         const mileageDisplay = document.getElementById('mileageDisplay');
         const checksumDisplay = document.getElementById('checksumDisplay');
@@ -61,31 +80,24 @@
             const buffer = e.target.result;
             const dataView = new DataView(buffer);
 
-            const mileageOffset = 0x10;
-            const mileageChecksumOffset = 0x19;
-
+            // Define Offsets
             const immoBypassOffset1 = 0x100;
             const immoBypassOffset2 = 0x110;
 
             const keyCode1Offset = 0x120;
             const keyCode2Offset = 0x130;
+
+            // Get Readigns
             const keyCode1 = readKeyCode(dataView, keyCode1Offset);
             const keyCode2 = readKeyCode(dataView, keyCode2Offset);
 
-            const mileage = dataView.getInt32(mileageOffset, true)/10;
-            const mileageChecksum = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+            const mileage = readOdometer(dataView);
+            const mileageChecksum = readOdometerChecksum(dataView);
 
-            const immoBypass1 = dataView.getUint8(immoBypassOffset1) + ' '
-              + dataView.getUint8(immoBypassOffset1+1) + ' '
-              + dataView.getUint8(immoBypassOffset1+2) + ' '
-              + dataView.getUint8(immoBypassOffset1+3) + ' '
-              + dataView.getUint8(immoBypassOffset1+4);
-            const immoBypass2 = dataView.getUint8(immoBypassOffset2) + ' '
-              + dataView.getUint8(immoBypassOffset2+1) + ' '
-              + dataView.getUint8(immoBypassOffset2+2) + ' '
-              + dataView.getUint8(immoBypassOffset2+3) + ' '
-              + dataView.getUint8(immoBypassOffset2+4);
+            const immoBypass1 = readImmoCode(dataView, immoBypassOffset1);
+            const immoBypass2 = readImmoCode(dataView, immoBypassOffset2);
 
+            // Display Values
             mileageDisplay.textContent = mileage + ' kms';
             checksumDisplay.textContent = mileageChecksum;
             immoBypass1Display.textContent = immoBypass1;

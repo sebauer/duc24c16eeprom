@@ -19,6 +19,33 @@
     <script>
       document.addEventListener('DOMContentLoaded', () => {
 
+        // Define Offsets
+        const immoBypassOffset1 = 0x100;
+        const immoBypassOffset2 = 0x110;
+
+        const keyCode1Offset = 0x120;
+        const keyCode2Offset = 0x130;
+
+        const checksumBytesOffset = 0x14;
+
+        const mileageOffset = 0x10;
+        const mileageChecksumOffset = 0x19;
+        const mileage2Offset = 0x20;
+        const mileage2ChecksumOffset = 0x29;
+
+        function integerToBytes(integerValue) {
+          const buffer = new ArrayBuffer(4);
+          const byteDataView = new DataView(buffer);
+
+          byteDataView.setInt32(0, integerValue, true);
+
+          const byteArray = [];
+          for(let i = 0; i < 4; i++) {
+            byteArray.push(byteDataView.getUint8(i));
+          }
+          return byteArray;
+        }
+
         function calculateOdometerChecksum(newOdometerValue, checkByte1, checkByte2) {
 
           const odometerBuffer = new ArrayBuffer(4);
@@ -28,11 +55,9 @@
           // Create byte array for everything that goes into the checksum
           odometerDataView.setInt32(0, adjustedOdometerValue, true);
 
-          const byteArray = [];
+          const byteArray = integerToBytes(adjustedOdometerValue);
 
-          for(let i = 0; i < 4; i++) {
-            byteArray.push(odometerDataView.getUint8(i));
-          }
+          // Add additional bytes part of the checksum calculation
           byteArray.push(checkByte1);
           byteArray.push(checkByte2);
           byteArray.push(0x0);
@@ -75,13 +100,15 @@
         }
 
         function readOdometer(dataView) {
-          const mileageOffset = 0x10;
           return dataView.getInt32(mileageOffset, true)/10;
         }
 
         function readOdometerChecksum(dataView) {
-          const mileageChecksumOffset = 0x19;
           return dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+        }
+
+        function modifyOdometerInDump(dataView, newOdometerValue, newChecksum) {
+          const newOdometerValueBytes = '';
         }
 
         const fileInput = document.getElementById('eepromFileSelector');
@@ -93,6 +120,7 @@
         const immoBypass2Display = document.getElementById('immoBypass2Display');
         const keyCode1Display = document.getElementById('keyCode1Display');
         const keyCode2Display = document.getElementById('keyCode2Display');
+        const downloadButton = document.getElementById('downloadButton');
 
         let checksumByte1;
         let checksumByte2;
@@ -102,6 +130,7 @@
           mileageInput.value = '';
           newChecksumDisplay.value = '';
           mileageInput.disabled = true;
+          downloadButton.disabled = true;
 
           if(!file)
             return;
@@ -123,15 +152,6 @@
           reader.onload = function(e) {
             const buffer = e.target.result;
             const dataView = new DataView(buffer);
-
-            // Define Offsets
-            const immoBypassOffset1 = 0x100;
-            const immoBypassOffset2 = 0x110;
-
-            const keyCode1Offset = 0x120;
-            const keyCode2Offset = 0x130;
-
-            const checksumBytesOffset = 0x14;
 
             // Get Readigns
             const keyCode1 = readKeyCode(dataView, keyCode1Offset);
@@ -170,6 +190,8 @@
           }
 
           newChecksumDisplay.value = calculateOdometerChecksum(newMileageValue, checksumByte1, checksumByte2);
+          downloadButton.classList.remove('disabled');
+          console.log('no more disabled');
         });
 
       });
@@ -202,7 +224,6 @@
             <form action="#">
               <div class="file-field input-field">
                 <div class="btn red darken-4">
-                  
                   <span>Select EEPROM Dump</span>
                   <input type="file" accept=".bin" id="eepromFileSelector">
                 </div>
@@ -237,25 +258,6 @@
             </div>
             <div class="col s6" id="checksumDisplay">
               -
-            </div>
-          </div>
-        </div>
-
-        <!-- Editing of mileage values -->
-        <div class="container">
-          <div class="row">
-            <div class="col s12 center-align">
-              <h5>Odometer Adjustment</h5>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col s6 input-field">
-              <input id="mileageInput" type="number" class="validate" placeholder="123456" min="0" step="0.1" disabled>
-              <label for="mileageInput">New Odometer Value</label>
-            </div>
-            <div class="col s6 input-field">
-              <input id="checksumNew" type="text" placeholder="xx" disabled>
-              <label for="checksumNew">New Odometer Checksum</label>
             </div>
           </div>
         </div>
@@ -299,6 +301,32 @@
             </div>
             <div class="col s6" id="keyCode2Display">
               -
+            </div>
+          </div>
+        </div>
+        
+        <div class="divider"></div>
+
+        <!-- Editing of mileage values -->
+        <div class="container">
+          <div class="row">
+            <div class="col s12 center-align">
+              <h5>Odometer Adjustment</h5>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s6 input-field">
+              <input id="mileageInput" type="number" class="validate" placeholder="123456" min="0" step="0.1" disabled>
+              <label for="mileageInput">New Odometer Value</label>
+            </div>
+            <div class="col s6 input-field">
+              <input id="checksumNew" type="text" placeholder="xx" disabled>
+              <label for="checksumNew">New Odometer Checksum</label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col s12 center-align">
+              <a class="waves-effect waves-light btn red darken-4 disabled" id="downloadButton"><i class="material-icons left">cloud</i>Download Adjusted File</a>
             </div>
           </div>
         </div>

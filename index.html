@@ -44,9 +44,13 @@
         const keyCode1Display = document.getElementById('keyCode1Display');
         const keyCode2Display = document.getElementById('keyCode2Display');
         const downloadButton = document.getElementById('downloadButton');
+        const checksumMismatchIcon = document.getElementById('checksumMismatchIcon');
 
         let checksumByte1;
         let checksumByte2;
+
+        var elems = document.querySelectorAll('.tooltipped');
+        var instances = M.Tooltip.init(elems);
 
         function integerToBytes(integerValue) {
           const buffer = new ArrayBuffer(4);
@@ -62,11 +66,6 @@
         }
 
         function calculateOdometerChecksum(newOdometerValue, checkByte1, checkByte2) {
-
-          console.log('Calculating checksum for');
-          console.log(newOdometerValue);
-          console.log(checkByte1);
-          console.log(checkByte2);
 
           const odometerBuffer = new ArrayBuffer(4);
           const odometerDataView = new DataView(odometerBuffer);
@@ -93,7 +92,6 @@
 
           // Mod
           const checksum = byteShiftedSum & 0xFF;
-          console.log(checksum);
           return checksum;
         }
 
@@ -127,7 +125,7 @@
         }
 
         function readOdometerChecksum(dataView) {
-          return dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+          return readableChecksum(dataView.getUint8(mileageChecksumOffset));
         }
 
         function downloadDump(dataBuffer, filename) {
@@ -182,6 +180,7 @@
           newChecksumDisplay.value = '';
           mileageInput.disabled = true;
           downloadButton.disabled = true;
+          checksumMismatchIcon.classList.add('hide');
 
           if(!file)
             return;
@@ -220,6 +219,13 @@
             // Display Values
             mileageDisplay.textContent = mileage + ' kms';
             checksumDisplay.textContent = mileageChecksum;
+
+            const calculatedChecksum = readableChecksum(calculateOdometerChecksum(mileage, checksumByte1, checksumByte2));
+            if(calculatedChecksum !== mileageChecksum) {
+              console.log('Checksum mismatch %s %s', calculatedChecksum, mileageChecksum);
+              checksumMismatchIcon.classList.remove('hide');
+            }
+
             immoBypass1Display.textContent = immoBypass1;
             immoBypass2Display.textContent = immoBypass2;
 
@@ -309,8 +315,8 @@
             <div class="col s6 right-align">
               Odometer Checksum
             </div>
-            <div class="col s6" id="checksumDisplay">
-              -
+            <div class="col s6 left-align">
+              <span id="checksumDisplay">F4</span> <i class="material-icons red-text tiny hide tooltipped" data-position="right" data-tooltip="Checksum validation failed" id="checksumMismatchIcon">report_problem</i>
             </div>
           </div>
         </div>

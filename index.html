@@ -182,8 +182,19 @@
           downloadButton.disabled = true;
           checksumMismatchIcon.classList.add('hide');
 
+          // File validations
           if(!file)
             return;
+
+          if(file.size !== 2048) {
+            M.toast({
+              html: 'Unexpected file size. A 24C16 dump with a size of 2048 Bytes is expected.',
+              classes: 'red darken-1'
+            });
+
+            fileInput.value = '';
+            return;
+          }
 
           if(!file.name.toLowerCase().endsWith('.bin')) {
             M.toast({

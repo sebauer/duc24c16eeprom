@@ -49,10 +49,12 @@
             const buffer = e.target.result;
             const dataView = new DataView(buffer);
 
-            const mileageOffset = 16;
-            const mileageChecksumOffset = 25;
-            const immoBypassOffset1 = 256;
-            const immoBypassOffset2 = 272;
+            const mileageOffset = 0x10;
+            const mileageChecksumOffset = 0x19;
+            const immoBypassOffset1 = 0x100;
+            const immoBypassOffset2 = 0x110;
+            const keyCode1Offset = 0x120;
+            const keyCode2Offset = 0x130;
 
             const mileage = dataView.getInt32(mileageOffset, true)/10;
             const mileageChecksum = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
@@ -69,6 +71,8 @@
               + dataView.getUint8(immoBypassOffset2+4);
             const key1 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
             const key2 = dataView.getUint8(mileageChecksumOffset).toString(16).toUpperCase();
+
+
 
             mileageDisplay.textContent = mileage + ' kms';
             checksumDisplay.textContent = mileageChecksum;

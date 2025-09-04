@@ -10,6 +10,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
     <title>Ducati 24C16 / I2K Dash Tool</title>
+
+    <style>
+      .bold-text {
+        font-weight: 500;
+      }
+    </style>
   </head>
 
   <body>
@@ -46,6 +52,7 @@
         const downloadButton = document.getElementById('downloadButton');
         const startDownloadButton = document.getElementById('startDownloadButton');
         const checksumMismatchIcon = document.getElementById('checksumMismatchIcon');
+        const checksumCorrectIcon = document.getElementById('checksumCorrectIcon');
 
         let checksumByte1;
         let checksumByte2;
@@ -182,6 +189,7 @@
           mileageInput.disabled = true;
           downloadButton.disabled = true;
           checksumMismatchIcon.classList.add('hide');
+          checksumCorrectIcon.classList.add('hide');
 
           // File validations
           if(!file)
@@ -236,6 +244,8 @@
             if(calculatedChecksum !== mileageChecksum) {
               console.log('Checksum mismatch %s %s', calculatedChecksum, mileageChecksum);
               checksumMismatchIcon.classList.remove('hide');
+            } else {
+              checksumCorrectIcon.classList.remove('hide');
             }
 
             immoBypass1Display.textContent = immoBypass1;
@@ -317,7 +327,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Odometer Reading
             </div>
             <div class="col s6" id="mileageDisplay">
@@ -325,11 +335,13 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Odometer Checksum
             </div>
             <div class="col s6 left-align">
-              <span id="checksumDisplay">-</span> <i class="material-icons red-text text-darken-1 hide tooltipped" style="display: inline-flex; vertical-align: -6px;" data-position="right" data-tooltip="Checksum validation failed" id="checksumMismatchIcon">error</i>
+              <span id="checksumDisplay">-</span>
+              <i class="material-icons green-text text-darken-1 hide tooltipped" style="display: inline-flex; vertical-align: -6px;" data-position="right" data-tooltip="Checksum successfully verified" id="checksumCorrectIcon">verified_user</i>
+              <i class="material-icons red-text text-darken-1 hide tooltipped" style="display: inline-flex; vertical-align: -6px;" data-position="right" data-tooltip="Checksum validation failed" id="checksumMismatchIcon">error</i>
             </div>
           </div>
         </div>
@@ -344,7 +356,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Immo Bypass Code 1
             </div>
             <div class="col s6" id="immoBypass1Display">
@@ -352,7 +364,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Immo Bypass Code 2
             </div>
             <div class="col s6" id="immoBypass2Display">
@@ -360,7 +372,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Key Code 1
             </div>
             <div class="col s6" id="keyCode1Display">
@@ -368,7 +380,7 @@
             </div>
           </div>
           <div class="row">
-            <div class="col s6 right-align">
+            <div class="col s6 right-align bold-text">
               Key Code 2
             </div>
             <div class="col s6" id="keyCode2Display">

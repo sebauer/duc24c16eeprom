@@ -50,11 +50,6 @@
           const checksum = byteShiftedSum & 0xFF;
           const readableChecksum = checksum.toString(16).padStart(2, '0').toUpperCase();
 
-          // Convert to hex
-          // convert each hex byte to dec
-          // byte shift each dec
-          // add all shifted decs
-          // apply modulo 256
           return readableChecksum;
         }
 
@@ -99,8 +94,14 @@
         const keyCode1Display = document.getElementById('keyCode1Display');
         const keyCode2Display = document.getElementById('keyCode2Display');
 
+        let checksumByte1;
+        let checksumByte2;
+
         fileInput.addEventListener('change', (event) => {
           const file = event.target.files[0];
+          mileageInput.value = '';
+          newChecksumDisplay.value = '';
+          mileageInput.disabled = true;
 
           if(!file)
             return;
@@ -115,6 +116,8 @@
             return;
           }
 
+          mileageInput.disabled = false;
+
           const reader = new FileReader();
 
           reader.onload = function(e) {
@@ -128,6 +131,8 @@
             const keyCode1Offset = 0x120;
             const keyCode2Offset = 0x130;
 
+            const checksumBytesOffset = 0x14;
+
             // Get Readigns
             const keyCode1 = readKeyCode(dataView, keyCode1Offset);
             const keyCode2 = readKeyCode(dataView, keyCode2Offset);
@@ -137,6 +142,9 @@
 
             const immoBypass1 = readImmoCode(dataView, immoBypassOffset1);
             const immoBypass2 = readImmoCode(dataView, immoBypassOffset2);
+
+            checksumByte1 = dataView.getUint8(checksumBytesOffset);
+            checksumByte2 = dataView.getUint8(checksumBytesOffset+1);
 
             // Display Values
             mileageDisplay.textContent = mileage + ' kms';
@@ -156,11 +164,12 @@
         mileageInput.addEventListener('change', (event) => {
           const newMileageValue = event.target.value;
 
-          newChecksumDisplay.value = calculateOdometerChecksum(newMileageValue, 0x03, 0x10);
-
           if(newMileageValue == '') {
             newChecksumDisplay.value = '';
+            return;
           }
+
+          newChecksumDisplay.value = calculateOdometerChecksum(newMileageValue, checksumByte1, checksumByte2);
         });
 
       });
@@ -241,7 +250,7 @@
           </div>
           <div class="row">
             <div class="col s6 input-field">
-              <input id="mileageInput" type="number" class="validate" placeholder="123456" min="0" step="0.1">
+              <input id="mileageInput" type="number" class="validate" placeholder="123456" min="0" step="0.1" disabled>
               <label for="mileageInput">New Odometer Value</label>
             </div>
             <div class="col s6 input-field">

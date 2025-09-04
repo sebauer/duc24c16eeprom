@@ -63,6 +63,11 @@
 
         function calculateOdometerChecksum(newOdometerValue, checkByte1, checkByte2) {
 
+          console.log('Calculating checksum for');
+          console.log(newOdometerValue);
+          console.log(checkByte1);
+          console.log(checkByte2);
+
           const odometerBuffer = new ArrayBuffer(4);
           const odometerDataView = new DataView(odometerBuffer);
           const adjustedOdometerValue = newOdometerValue*10;
@@ -88,9 +93,12 @@
 
           // Mod
           const checksum = byteShiftedSum & 0xFF;
-          const readableChecksum = checksum.toString(16).padStart(2, '0').toUpperCase();
+          console.log(checksum);
+          return checksum;
+        }
 
-          return readableChecksum;
+        function readableChecksum(checksum){
+          return checksum.toString(16).padStart(2, '0').toUpperCase();
         }
 
         function readKeyCode(dataView, offset) {
@@ -123,15 +131,16 @@
         }
 
         function downloadDump(dataBuffer, filename) {
-        
+          const blob = new Blob([dataBuffer], { type: 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          window.location.href = url;
+
+          window.URL.revokeObjectURL(url);
         }
 
-        function createModifiedDump(newOdometerValue) {
+        function createModifiedDump(newOdometerInput) {
+          const normalizedOdometerValue = newOdometerInput*10;
           const file = fileInput.files[0];
-          mileageInput.value = '';
-          newChecksumDisplay.value = '';
-          mileageInput.disabled = true;
-          downloadButton.disabled = true;
 
           if(!file)
             return;
@@ -146,35 +155,22 @@
             return;
           }
 
-          mileageInput.disabled = false;
-
           const reader = new FileReader();
 
           reader.onload = function(e) {
-            const buffer = e.target.result;
-            const dataView = new DataView(buffer);
+            const modifiedBuffer = e.target.result;
+            const modifiedDataView = new DataView(modifiedBuffer);
 
-            const newChecksum = calculateOdometerChecksum(newOdometerValue, checksumByte1, checksumByte2);
 
-            const newOdometerValueBytes = integerToBytes(newOdometerValue);
-            const newChecksumBytes = integerToBytes(newChecksum);
+            const newChecksum = calculateOdometerChecksum(newOdometerInput, checksumByte1, checksumByte2);
+            // Write odometer values
+            modifiedDataView.setUint32(mileageOffset, normalizedOdometerValue, true);
+            modifiedDataView.setUint32(mileage2Offset, normalizedOdometerValue, true);
+            // Write checksums
+            modifiedDataView.setUint8(mileageChecksumOffset, newChecksum);
+            modifiedDataView.setUint8(mileage2ChecksumOffset, newChecksum);
 
-            // Write first odometer setting
-            for (let i = mileageOffset; i < newOdometerValueBytes.length; i++) {
-              dataView.setUint8(mileageOffset + i, newOdometerValueBytes);
-            }
-            // Write second odometer setting
-            for (let i = mileage2Offset; i < newOdometerValueBytes.length; i++) {
-              dataView.setUint8(mileage2Offset + i, newOdometerValueBytes);
-            }
-            // Write first checksum
-            for (let i = mileageChecksumOffset; i < newChecksum.length; i++) {
-              dataView.setUint8(mileageChecksumOffset + i, newChecksumBytes);
-            }
-            // Write second checksum
-            for (let i = mileage2ChecksumOffset; i < newChecksum.length; i++) {
-              dataView.setUint8(mileageChecksum2Offset + i, newChecksumBytes);
-            }
+            downloadDump(modifiedBuffer, 'modified.bin');
           };
 
           reader.readAsArrayBuffer(file);
@@ -244,13 +240,12 @@
             return;
           }
 
-          newChecksumDisplay.value = calculateOdometerChecksum(newMileageValue, checksumByte1, checksumByte2);
+          newChecksumDisplay.value = readableChecksum(calculateOdometerChecksum(newMileageValue, checksumByte1, checksumByte2));
           downloadButton.classList.remove('disabled');
-          console.log('no more disabled');
         });
 
         downloadButton.addEventListener('click', (event) => {
-          createModifiedDump()
+          createModifiedDump(mileageInput.value);
         });
       });
     </script>

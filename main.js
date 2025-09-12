@@ -1,253 +1,177 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Constants
+  const OFFSETS = {
+    immoBypass1: 0x100,
+    immoBypass2: 0x110,
+    keyCode1: 0x120,
+    keyCode2: 0x130,
+    checksumBytes: 0x14,
+    mileage: 0x10,
+    mileageChecksum: 0x19,
+    mileage2: 0x20,
+    mileage2Checksum: 0x29,
+  };
 
-  // Define Offsets
-  const immoBypassOffset1 = 0x100;
-  const immoBypassOffset2 = 0x110;
+  // DOM Elements
+  const ELEMENTS = {
+    fileInput: document.getElementById('eepromFileSelector'),
+    mileageInput: document.getElementById('mileageInput'),
+    mileageDisplay: document.getElementById('mileageDisplay'),
+    checksumDisplay: document.getElementById('checksumDisplay'),
+    newChecksumDisplay: document.getElementById('checksumNew'),
+    immoBypass1Display: document.getElementById('immoBypass1Display'),
+    immoBypass2Display: document.getElementById('immoBypass2Display'),
+    keyCode1Display: document.getElementById('keyCode1Display'),
+    keyCode2Display: document.getElementById('keyCode2Display'),
+    downloadButton: document.getElementById('downloadButton'),
+    startDownloadButton: document.getElementById('startDownloadButton'),
+    checksumMismatchIcon: document.getElementById('checksumMismatchIcon'),
+    checksumCorrectIcon: document.getElementById('checksumCorrectIcon'),
+  };
 
-  const keyCode1Offset = 0x120;
-  const keyCode2Offset = 0x130;
+  let checksumBytes = { byte1: null, byte2: null };
 
-  const checksumBytesOffset = 0x14;
+  // Initialize Materialize Components
+  M.Tooltip.init(document.querySelectorAll('.tooltipped'));
+  M.Modal.init(document.querySelectorAll('.modal'));
 
-  const mileageOffset = 0x10;
-  const mileageChecksumOffset = 0x19;
-  const mileage2Offset = 0x20;
-  const mileage2ChecksumOffset = 0x29;
-
-  // Elements
-  const fileInput = document.getElementById('eepromFileSelector');
-  const mileageInput = document.getElementById('mileageInput');
-  const mileageDisplay = document.getElementById('mileageDisplay');
-  const checksumDisplay = document.getElementById('checksumDisplay');
-  const newChecksumDisplay = document.getElementById('checksumNew');
-  const immoBypass1Display = document.getElementById('immoBypass1Display');
-  const immoBypass2Display = document.getElementById('immoBypass2Display');
-  const keyCode1Display = document.getElementById('keyCode1Display');
-  const keyCode2Display = document.getElementById('keyCode2Display');
-  const downloadButton = document.getElementById('downloadButton');
-  const startDownloadButton = document.getElementById('startDownloadButton');
-  const checksumMismatchIcon = document.getElementById('checksumMismatchIcon');
-  const checksumCorrectIcon = document.getElementById('checksumCorrectIcon');
-
-  let checksumByte1;
-  let checksumByte2;
-
-  let tooltips = M.Tooltip.init(document.querySelectorAll('.tooltipped'));
-  let modals = M.Modal.init(document.querySelectorAll('.modal'));
-
-  function integerToBytes(integerValue) {
-    const buffer = new ArrayBuffer(4);
-    const byteDataView = new DataView(buffer);
-
-    byteDataView.setInt32(0, integerValue, true);
-
-    const byteArray = [];
-    for(let i = 0; i < 4; i++) {
-      byteArray.push(byteDataView.getUint8(i));
-    }
-    return byteArray;
-  }
-
-  function calculateOdometerChecksum(newOdometerValue, checkByte1, checkByte2) {
-
-    const odometerBuffer = new ArrayBuffer(4);
-    const odometerDataView = new DataView(odometerBuffer);
-    const adjustedOdometerValue = newOdometerValue*10;
-
-    // Create byte array for everything that goes into the checksum
-    odometerDataView.setInt32(0, adjustedOdometerValue, true);
-
-    const byteArray = integerToBytes(adjustedOdometerValue);
-
-    // Add additional bytes part of the checksum calculation
-    byteArray.push(checkByte1);
-    byteArray.push(checkByte2);
-    byteArray.push(0x0);
-    byteArray.push(0x0);
-
-    // Byte Shifting
-    let byteShiftedSum = 0;
-    for(let i = 0; i < byteArray.length; i++) {
-      const currentByte = byteArray[i];
-      const calculatedValue = currentByte + (currentByte >> 1);
-      byteShiftedSum += calculatedValue;
-    }
-
-    // Mod
-    const checksum = byteShiftedSum & 0xFF;
-    return checksum;
-  }
-
-  function readableChecksum(checksum){
-    return checksum.toString(16).padStart(2, '0').toUpperCase();
-  }
-
-  function readKeyCode(dataView, offset) {
-    const keyCodeInHex = [];
-
-    for (let i = 0; i < 10; i++) {
-        const currentByte = dataView.getUint8(offset + i);
-        const hexString = currentByte.toString(16).padStart(2, '0').toUpperCase();
-        keyCodeInHex.push(hexString);
-      }
-
-      return keyCodeInHex.join(' ');
-  }
-
-  function readImmoCode(dataView, offset) {
-    const immoBypass = dataView.getUint8(offset) + ''
-        + dataView.getUint8(offset+1) + ''
-        + dataView.getUint8(offset+2) + ''
-        + dataView.getUint8(offset+3) + ''
-        + dataView.getUint8(offset+4);
-    return immoBypass;
-  }
-
-  function readOdometer(dataView) {
-    return dataView.getInt32(mileageOffset, true)/10;
-  }
-
-  function readOdometerChecksum(dataView) {
-    return readableChecksum(dataView.getUint8(mileageChecksumOffset));
-  }
-
-  function downloadDump(dataBuffer, filename) {
-    const blob = new Blob([dataBuffer], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    window.location.href = url;
-
-    window.URL.revokeObjectURL(url);
-  }
-
-  function createModifiedDump(newOdometerInput) {
-    const normalizedOdometerValue = newOdometerInput*10;
-    const file = fileInput.files[0];
-
-    if(!file)
-      return;
-
-    if(!file.name.toLowerCase().endsWith('.bin')) {
-      M.toast({
-        html: 'Please select a .bin file.',
-        classes: 'red darken-1'
-      });
-
-      fileInput.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-      const modifiedBuffer = e.target.result;
-      const modifiedDataView = new DataView(modifiedBuffer);
-
-
-      const newChecksum = calculateOdometerChecksum(newOdometerInput, checksumByte1, checksumByte2);
-      // Write odometer values
-      modifiedDataView.setUint32(mileageOffset, normalizedOdometerValue, true);
-      modifiedDataView.setUint32(mileage2Offset, normalizedOdometerValue, true);
-      // Write checksums
-      modifiedDataView.setUint8(mileageChecksumOffset, newChecksum);
-      modifiedDataView.setUint8(mileage2ChecksumOffset, newChecksum);
-
-      downloadDump(modifiedBuffer, 'modified.bin');
-    };
-
-    reader.readAsArrayBuffer(file);
-  }
-
-  fileInput.addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    mileageInput.value = '';
-    newChecksumDisplay.value = '';
-    mileageInput.disabled = true;
-    downloadButton.disabled = true;
-    checksumMismatchIcon.classList.add('hide');
-    checksumCorrectIcon.classList.add('hide');
-
-    // File validations
-    if(!file)
-      return;
-
-    if(file.size !== 2048) {
-      M.toast({
-        html: 'Unexpected file size. A 24C16 dump with a size of 2048 Bytes is expected.',
-        classes: 'red darken-1'
-      });
-
-      fileInput.value = '';
-      return;
-    }
-
-    if(!file.name.toLowerCase().endsWith('.bin')) {
-      M.toast({
-        html: 'Please select a .bin file.',
-        classes: 'red darken-1'
-      });
-
-      fileInput.value = '';
-      return;
-    }
-
-    mileageInput.disabled = false;
-
-    const reader = new FileReader();
-
-    reader.onload = function(e) {
-      const buffer = e.target.result;
+  // Utility Functions
+  const Utils = {
+    integerToBytes: (integerValue) => {
+      const buffer = new ArrayBuffer(4);
       const dataView = new DataView(buffer);
+      dataView.setInt32(0, integerValue, true);
 
-      // Get Readigns
-      const keyCode1 = readKeyCode(dataView, keyCode1Offset);
-      const keyCode2 = readKeyCode(dataView, keyCode2Offset);
+      return Array.from({ length: 4 }, (_, i) => dataView.getUint8(i));
+    },
 
-      const mileage = readOdometer(dataView);
-      const mileageChecksum = readOdometerChecksum(dataView);
+    readableChecksum: (checksum) => checksum.toString(16).padStart(2, '0').toUpperCase(),
 
-      const immoBypass1 = readImmoCode(dataView, immoBypassOffset1);
-      const immoBypass2 = readImmoCode(dataView, immoBypassOffset2);
+    calculateOdometerChecksum: (odometerValue, byte1, byte2) => {
+      const adjustedValue = odometerValue * 10;
+      const byteArray = Utils.integerToBytes(adjustedValue).concat([byte1, byte2, 0x0, 0x0]);
 
-      checksumByte1 = dataView.getUint8(checksumBytesOffset);
-      checksumByte2 = dataView.getUint8(checksumBytesOffset+1);
+      const checksum = byteArray.reduce((sum, byte) => sum + byte + (byte >> 1), 0) & 0xFF;
+      return checksum;
+    },
 
-      // Display Values
-      mileageDisplay.textContent = mileage + ' kms';
-      checksumDisplay.textContent = mileageChecksum;
+    downloadFile: (buffer, filename) => {
+      const blob = new Blob([buffer], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    },
+  };
 
-      const calculatedChecksum = readableChecksum(calculateOdometerChecksum(mileage, checksumByte1, checksumByte2));
-      if(calculatedChecksum !== mileageChecksum) {
-        console.log('Checksum mismatch %s %s', calculatedChecksum, mileageChecksum);
-        checksumMismatchIcon.classList.remove('hide');
-      } else {
-        checksumCorrectIcon.classList.remove('hide');
+  // EEPROM Data Handlers
+  const EEPROM = {
+    readKeyCode: (dataView, offset) =>
+      Array.from({ length: 10 }, (_, i) =>
+        dataView.getUint8(offset + i).toString(16).padStart(2, '0').toUpperCase()
+      ).join(' '),
+
+    readImmoCode: (dataView, offset) =>
+      Array.from({ length: 5 }, (_, i) => dataView.getUint8(offset + i)).join(''),
+
+    readOdometer: (dataView) => dataView.getInt32(OFFSETS.mileage, true) / 10,
+
+    readOdometerChecksum: (dataView) =>
+      Utils.readableChecksum(dataView.getUint8(OFFSETS.mileageChecksum)),
+
+    createModifiedDump: (buffer, newOdometerValue) => {
+      const dataView = new DataView(buffer);
+      const normalizedValue = newOdometerValue * 10;
+      const newChecksum = Utils.calculateOdometerChecksum(
+        newOdometerValue,
+        checksumBytes.byte1,
+        checksumBytes.byte2
+      );
+
+      // Update odometer values and checksums
+      dataView.setUint32(OFFSETS.mileage, normalizedValue, true);
+      dataView.setUint32(OFFSETS.mileage2, normalizedValue, true);
+      dataView.setUint8(OFFSETS.mileageChecksum, newChecksum);
+      dataView.setUint8(OFFSETS.mileage2Checksum, newChecksum);
+
+      Utils.downloadFile(buffer, 'modified.bin');
+    },
+  };
+
+  // Event Handlers
+  const Handlers = {
+    onFileChange: (event) => {
+      const file = event.target.files[0];
+      if (!file || file.size !== 2048 || !file.name.toLowerCase().endsWith('.bin')) {
+        M.toast({ html: 'Invalid file. Please select a valid 24C16 .bin file.', classes: 'red darken-1' });
+        ELEMENTS.fileInput.value = '';
+        return;
       }
 
-      immoBypass1Display.textContent = immoBypass1;
-      immoBypass2Display.textContent = immoBypass2;
+      ELEMENTS.mileageInput.disabled = false;
 
-      keyCode1Display.innerText = keyCode1;
-      keyCode2Display.innerText = keyCode2;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target.result;
+        const dataView = new DataView(buffer);
 
-    };
+        // Read and display data
+        ELEMENTS.keyCode1Display.textContent = EEPROM.readKeyCode(dataView, OFFSETS.keyCode1);
+        ELEMENTS.keyCode2Display.textContent = EEPROM.readKeyCode(dataView, OFFSETS.keyCode2);
+        ELEMENTS.immoBypass1Display.textContent = EEPROM.readImmoCode(dataView, OFFSETS.immoBypass1);
+        ELEMENTS.immoBypass2Display.textContent = EEPROM.readImmoCode(dataView, OFFSETS.immoBypass2);
 
-    reader.readAsArrayBuffer(file);
+        const mileage = EEPROM.readOdometer(dataView);
+        const checksum = EEPROM.readOdometerChecksum(dataView);
+        ELEMENTS.mileageDisplay.textContent = `${mileage} kms`;
+        ELEMENTS.checksumDisplay.textContent = checksum;
 
-  });
+        checksumBytes.byte1 = dataView.getUint8(OFFSETS.checksumBytes);
+        checksumBytes.byte2 = dataView.getUint8(OFFSETS.checksumBytes + 1);
 
-  mileageInput.addEventListener('change', (event) => {
-    const newMileageValue = event.target.value;
+        const calculatedChecksum = Utils.readableChecksum(
+          Utils.calculateOdometerChecksum(mileage, checksumBytes.byte1, checksumBytes.byte2)
+        );
 
-    if(newMileageValue == '') {
-      newChecksumDisplay.value = '';
-      return;
-    }
+        if (calculatedChecksum !== checksum) {
+          ELEMENTS.checksumMismatchIcon.classList.remove('hide');
+        } else {
+          ELEMENTS.checksumCorrectIcon.classList.remove('hide');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    },
 
-    newChecksumDisplay.value = readableChecksum(calculateOdometerChecksum(newMileageValue, checksumByte1, checksumByte2));
-    downloadButton.classList.remove('disabled');
-  });
+    onMileageChange: (event) => {
+      const newMileage = event.target.value;
+      if (!newMileage) {
+        ELEMENTS.newChecksumDisplay.value = '';
+        return;
+      }
 
-  startDownloadButton.addEventListener('click', (event) => {
-    createModifiedDump(mileageInput.value);
-  });
+      const newChecksum = Utils.readableChecksum(
+        Utils.calculateOdometerChecksum(newMileage, checksumBytes.byte1, checksumBytes.byte2)
+      );
+      ELEMENTS.newChecksumDisplay.value = newChecksum;
+      ELEMENTS.downloadButton.classList.remove('disabled');
+    },
+
+    onDownloadClick: () => {
+      const file = ELEMENTS.fileInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        EEPROM.createModifiedDump(e.target.result, ELEMENTS.mileageInput.value);
+      };
+      reader.readAsArrayBuffer(file);
+    },
+  };
+
+  // Attach Event Listeners
+  ELEMENTS.fileInput.addEventListener('change', Handlers.onFileChange);
+  ELEMENTS.mileageInput.addEventListener('change', Handlers.onMileageChange);
+  ELEMENTS.startDownloadButton.addEventListener('click', Handlers.onDownloadClick);
 });

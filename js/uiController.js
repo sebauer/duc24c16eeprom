@@ -50,9 +50,11 @@ export class UIController {
       );
 
       if (calculatedChecksum !== checksum) {
+        this.elements.checksumCorrectIcon.classList.add('hide');
         this.elements.checksumMismatchIcon.classList.remove('hide');
       } else {
         this.elements.checksumCorrectIcon.classList.remove('hide');
+        this.elements.checksumMismatchIcon.classList.add('hide');
       }
     };
     reader.readAsArrayBuffer(file);

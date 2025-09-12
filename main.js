@@ -29,33 +29,29 @@ document.addEventListener('DOMContentLoaded', () => {
     checksumCorrectIcon: document.getElementById('checksumCorrectIcon'),
   };
 
-  let checksumBytes = { byte1: null, byte2: null };
+  // Initialize Materialize components
+  const tooltips = M.Tooltip.init(document.querySelectorAll('.tooltipped'));
+  const modals = M.Modal.init(document.querySelectorAll('.modal'));
 
-  // Initialize Materialize Components
-  M.Tooltip.init(document.querySelectorAll('.tooltipped'));
-  M.Modal.init(document.querySelectorAll('.modal'));
-
-  // Utility Functions
-  const Utils = {
-    integerToBytes: (integerValue) => {
+  class Utils {
+    static integerToBytes(integerValue) {
       const buffer = new ArrayBuffer(4);
       const dataView = new DataView(buffer);
       dataView.setInt32(0, integerValue, true);
-
       return Array.from({ length: 4 }, (_, i) => dataView.getUint8(i));
-    },
+    }
 
-    readableChecksum: (checksum) => checksum.toString(16).padStart(2, '0').toUpperCase(),
+    static readableChecksum(checksum) {
+      return checksum.toString(16).padStart(2, '0').toUpperCase();
+    }
 
-    calculateOdometerChecksum: (odometerValue, byte1, byte2) => {
+    static calculateOdometerChecksum(odometerValue, byte1, byte2) {
       const adjustedValue = odometerValue * 10;
       const byteArray = Utils.integerToBytes(adjustedValue).concat([byte1, byte2, 0x0, 0x0]);
+      return byteArray.reduce((sum, byte) => sum + byte + (byte >> 1), 0) & 0xFF;
+    }
 
-      const checksum = byteArray.reduce((sum, byte) => sum + byte + (byte >> 1), 0) & 0xFF;
-      return checksum;
-    },
-
-    downloadFile: (buffer, filename) => {
+    static downloadFile(buffer, filename) {
       const blob = new Blob([buffer], { type: 'application/octet-stream' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -63,26 +59,33 @@ document.addEventListener('DOMContentLoaded', () => {
       anchor.download = filename;
       anchor.click();
       URL.revokeObjectURL(url);
-    },
-  };
+    }
+  }
 
-  // EEPROM Data Handlers
-  const EEPROM = {
-    readKeyCode: (dataView, offset) =>
-      Array.from({ length: 10 }, (_, i) =>
-        dataView.getUint8(offset + i).toString(16).padStart(2, '0').toUpperCase()
-      ).join(' '),
+  class EEPROMReader {
+    constructor(buffer) {
+      this.dataView = new DataView(buffer);
+    }
 
-    readImmoCode: (dataView, offset) =>
-      Array.from({ length: 5 }, (_, i) => dataView.getUint8(offset + i)).join(''),
+    readKeyCode(offset) {
+      return Array.from({ length: 10 }, (_, i) =>
+        this.dataView.getUint8(offset + i).toString(16).padStart(2, '0').toUpperCase()
+      ).join(' ');
+    }
 
-    readOdometer: (dataView) => dataView.getInt32(OFFSETS.mileage, true) / 10,
+    readImmoCode(offset) {
+      return Array.from({ length: 5 }, (_, i) => this.dataView.getUint8(offset + i)).join('');
+    }
 
-    readOdometerChecksum: (dataView) =>
-      Utils.readableChecksum(dataView.getUint8(OFFSETS.mileageChecksum)),
+    readOdometer(offset) {
+      return this.dataView.getInt32(offset, true) / 10;
+    }
 
-    createModifiedDump: (buffer, newOdometerValue) => {
-      const dataView = new DataView(buffer);
+    readOdometerChecksum(offset) {
+      return Utils.readableChecksum(this.dataView.getUint8(offset));
+    }
+
+    createModifiedDump(newOdometerValue, offsets, checksumBytes) {
       const normalizedValue = newOdometerValue * 10;
       const newChecksum = Utils.calculateOdometerChecksum(
         newOdometerValue,
@@ -91,87 +94,112 @@ document.addEventListener('DOMContentLoaded', () => {
       );
 
       // Update odometer values and checksums
-      dataView.setUint32(OFFSETS.mileage, normalizedValue, true);
-      dataView.setUint32(OFFSETS.mileage2, normalizedValue, true);
-      dataView.setUint8(OFFSETS.mileageChecksum, newChecksum);
-      dataView.setUint8(OFFSETS.mileage2Checksum, newChecksum);
+      this.dataView.setUint32(offsets.mileage, normalizedValue, true);
+      this.dataView.setUint32(offsets.mileage2, normalizedValue, true);
+      this.dataView.setUint8(offsets.mileageChecksum, newChecksum);
+      this.dataView.setUint8(offsets.mileage2Checksum, newChecksum);
 
-      Utils.downloadFile(buffer, 'modified.bin');
-    },
-  };
+      return this.dataView.buffer;
+    }
+  }
 
-  // Event Handlers
-  const Handlers = {
-    onFileChange: (event) => {
+  class UIController {
+    constructor(elements, offsets) {
+      this.elements = elements;
+      this.offsets = offsets;
+      this.checksumBytes = { byte1: null, byte2: null };
+    }
+
+    initialize() {
+      // Add event listeners for all relevant elements
+      this.elements.fileInput.addEventListener('change', (e) => this.handleFileChange(e));
+      this.elements.mileageInput.addEventListener('change', (e) => this.handleMileageChange(e));
+      this.elements.downloadButton.addEventListener('click', (e) => this.handleOpenModal(e)); // Open modal
+      this.elements.startDownloadButton.addEventListener('click', (e) => this.handleDownload(e)); // Start download
+    }
+
+    handleFileChange(event) {
       const file = event.target.files[0];
       if (!file || file.size !== 2048 || !file.name.toLowerCase().endsWith('.bin')) {
         M.toast({ html: 'Invalid file. Please select a valid 24C16 .bin file.', classes: 'red darken-1' });
-        ELEMENTS.fileInput.value = '';
+        this.elements.fileInput.value = '';
         return;
       }
 
-      ELEMENTS.mileageInput.disabled = false;
+      this.elements.mileageInput.disabled = false;
 
       const reader = new FileReader();
       reader.onload = (e) => {
         const buffer = e.target.result;
-        const dataView = new DataView(buffer);
+        const eeprom = new EEPROMReader(buffer);
 
         // Read and display data
-        ELEMENTS.keyCode1Display.textContent = EEPROM.readKeyCode(dataView, OFFSETS.keyCode1);
-        ELEMENTS.keyCode2Display.textContent = EEPROM.readKeyCode(dataView, OFFSETS.keyCode2);
-        ELEMENTS.immoBypass1Display.textContent = EEPROM.readImmoCode(dataView, OFFSETS.immoBypass1);
-        ELEMENTS.immoBypass2Display.textContent = EEPROM.readImmoCode(dataView, OFFSETS.immoBypass2);
+        this.elements.keyCode1Display.textContent = eeprom.readKeyCode(this.offsets.keyCode1);
+        this.elements.keyCode2Display.textContent = eeprom.readKeyCode(this.offsets.keyCode2);
+        this.elements.immoBypass1Display.textContent = eeprom.readImmoCode(this.offsets.immoBypass1);
+        this.elements.immoBypass2Display.textContent = eeprom.readImmoCode(this.offsets.immoBypass2);
 
-        const mileage = EEPROM.readOdometer(dataView);
-        const checksum = EEPROM.readOdometerChecksum(dataView);
-        ELEMENTS.mileageDisplay.textContent = `${mileage} kms`;
-        ELEMENTS.checksumDisplay.textContent = checksum;
+        const mileage = eeprom.readOdometer(this.offsets.mileage);
+        const checksum = eeprom.readOdometerChecksum(this.offsets.mileageChecksum);
+        this.elements.mileageDisplay.textContent = `${mileage} kms`;
+        this.elements.checksumDisplay.textContent = checksum;
 
-        checksumBytes.byte1 = dataView.getUint8(OFFSETS.checksumBytes);
-        checksumBytes.byte2 = dataView.getUint8(OFFSETS.checksumBytes + 1);
+        this.checksumBytes.byte1 = eeprom.dataView.getUint8(this.offsets.checksumBytes);
+        this.checksumBytes.byte2 = eeprom.dataView.getUint8(this.offsets.checksumBytes + 1);
 
         const calculatedChecksum = Utils.readableChecksum(
-          Utils.calculateOdometerChecksum(mileage, checksumBytes.byte1, checksumBytes.byte2)
+          Utils.calculateOdometerChecksum(mileage, this.checksumBytes.byte1, this.checksumBytes.byte2)
         );
 
         if (calculatedChecksum !== checksum) {
-          ELEMENTS.checksumMismatchIcon.classList.remove('hide');
+          this.elements.checksumMismatchIcon.classList.remove('hide');
         } else {
-          ELEMENTS.checksumCorrectIcon.classList.remove('hide');
+          this.elements.checksumCorrectIcon.classList.remove('hide');
         }
       };
       reader.readAsArrayBuffer(file);
-    },
+    }
 
-    onMileageChange: (event) => {
+    handleMileageChange(event) {
       const newMileage = event.target.value;
       if (!newMileage) {
-        ELEMENTS.newChecksumDisplay.value = '';
+        this.elements.newChecksumDisplay.value = '';
         return;
       }
 
       const newChecksum = Utils.readableChecksum(
-        Utils.calculateOdometerChecksum(newMileage, checksumBytes.byte1, checksumBytes.byte2)
+        Utils.calculateOdometerChecksum(newMileage, this.checksumBytes.byte1, this.checksumBytes.byte2)
       );
-      ELEMENTS.newChecksumDisplay.value = newChecksum;
-      ELEMENTS.downloadButton.classList.remove('disabled');
-    },
+      this.elements.newChecksumDisplay.value = newChecksum;
+      this.elements.downloadButton.classList.remove('disabled');
+    }
 
-    onDownloadClick: () => {
-      const file = ELEMENTS.fileInput.files[0];
+    handleOpenModal(event) {
+      console.log('Opening modal');
+      const modal = M.Modal.getInstance(document.getElementById('downloadModal'));
+      modal.open();
+    }
+
+    handleDownload(event) {
+      console.log('Download initiated');
+      const file = this.elements.fileInput.files[0];
       if (!file) return;
 
       const reader = new FileReader();
       reader.onload = (e) => {
-        EEPROM.createModifiedDump(e.target.result, ELEMENTS.mileageInput.value);
+        const eeprom = new EEPROMReader(e.target.result);
+        const modifiedBuffer = eeprom.createModifiedDump(
+          this.elements.mileageInput.value,
+          this.offsets,
+          this.checksumBytes
+        );
+        Utils.downloadFile(modifiedBuffer, 'modified.bin');
       };
       reader.readAsArrayBuffer(file);
-    },
-  };
+    }
+  }
 
-  // Attach Event Listeners
-  ELEMENTS.fileInput.addEventListener('change', Handlers.onFileChange);
-  ELEMENTS.mileageInput.addEventListener('change', Handlers.onMileageChange);
-  ELEMENTS.startDownloadButton.addEventListener('click', Handlers.onDownloadClick);
+  // Initialize the application
+  const uiController = new UIController(ELEMENTS, OFFSETS);
+  uiController.initialize();
 });

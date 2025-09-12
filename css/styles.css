@@ -1,0 +1,11 @@
+/* Bold text styling */
+.bold-text {
+  font-weight: 500;
+}
+
+/* Icon styling for tooltips */
+#checksumCorrectIcon,
+#checksumMismatchIcon {
+  display: inline-flex;
+  vertical-align: -6px;
+}
